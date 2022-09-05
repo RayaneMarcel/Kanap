@@ -22,12 +22,14 @@ function createButton(parent, value, id) {
     parent.getElementsByTagName('input')[0].setAttribute('id', id);
 }
 
+// to clone a node in the DOM
 function cloneArticle () {
   const cartItem = document.getElementsByClassName('cart__item')[0];
   const newCartItem = cartItem.cloneNode(true);
   const cartItemsSection = document.getElementById('cart__items');
   cartItemsSection.appendChild(newCartItem);              
-}   
+}
+
 
 // request the products on the API
 const apiProductsUrl = 'http://localhost:3000/api/products';
@@ -39,86 +41,103 @@ let cartTotalPrice = 0;
 const h1 = document.getElementsByTagName('h1');
 const cartSection = document.getElementsByClassName('cart');
 
+const productFetch = function () {
+  for (let i = 0; i < cartProducts.length; i++) {
+    let cartProductId = cartProducts[i][0];
+    let cartProductColor = cartProducts[i][1];
+    let cartProductQuantity = cartProducts[i][2];
+    if (i>0) {
+        cloneArticle(); // clone the DOM elements for an article
+    }
+    fetch(apiProductsUrl)
+      .then((response) => {
+        if (response.ok) {
+            return response.json();
+        }
+      })  
+      .then((products) => {
+        // find and compare the product id in cart and the product id on API => 
+        function findId(products) {
+            return products._id === cartProductId;
+        }
+        const foundProduct = products.find(findId);
+        const productImageUrl = foundProduct.imageUrl;
+        const productImageAlt = foundProduct.altTxt;
+        const productName = foundProduct.name;
+        const productPrice = foundProduct.price;
+                    
+        // set attributes for an article
+        const cartItemArticle = document.getElementsByTagName('article');
+        cartItemArticle[i].setAttribute('data-id', cartProductId);
+        cartItemArticle[i].setAttribute('data-color', cartProductColor);
+        cartItemArticle[i].getElementsByTagName('img')[0].setAttribute('src', productImageUrl);
+        cartItemArticle[i].getElementsByTagName('img')[0].setAttribute('alt', productImageAlt);
+        const cartItemDesc = document.getElementsByClassName('cart__item__content__description')[i];
+        cartItemDesc.getElementsByTagName('h2')[0].innerHTML = productName;
+        cartItemDesc.getElementsByTagName('p')[0].innerHTML = cartProductColor;
+        cartItemDesc.getElementsByTagName('p')[1].innerHTML = productPrice+ ' €';
+        document.getElementsByClassName('itemQuantity')[i].setAttribute('value', cartProductQuantity);
+        cartTotalQuantity += parseInt(cartProductQuantity);
+        document.getElementById('totalQuantity').innerHTML = cartTotalQuantity;
+        cartTotalPrice += cartProductQuantity * productPrice;
+        document.getElementById('totalPrice').innerHTML = cartTotalPrice;
+
+        //Change quantity in cart
+        const inputQuantity = document.getElementsByClassName('itemQuantity')[i];
+        inputQuantity.addEventListener ('change', () => {
+          changeCartQuantity (cartProductId, cartProductColor, inputQuantity)
+        });
+
+        //Delete items
+        const deleteItemButton = document.getElementsByClassName('deleteItem')[i];
+        deleteItemButton.addEventListener ('click', () => {
+          deleteCartItem (cartProductId, cartProductColor);
+        });           
+      })
+      .catch((error) => {
+        //if error => display error message
+        h1[0].innerHTML = 'Erreur de connexion...<br>Impossible de charger les produits !';
+        h1[0].style.fontSize ='20px';
+        h1[0].style.fontWeight = 'normal';
+        cartSection[0].innerHTML = '';
+      });
+  } // end for
+}
+
 if (cartProducts.length == 0) {  // if empty Cart
     h1[0].innerHTML = 'Votre panier est vide.';
     cartSection[0].innerHTML = '';
-
 } else {
-    for (let i = 0; i < cartProducts.length; i++) {
-        let cartProductId = cartProducts[i][0];
-        let cartProductColor = cartProducts[i][1];
-        let cartProductQuantity = cartProducts[i][2];
-        if (i>0) {
-            cloneArticle(); // clone the DOM elements for an article
-        }
-        fetch(apiProductsUrl)
-            .then((response) => {
-                if (response.ok) {
-                    return response.json();
-                }
-            })  
-            .then((products) => {
-                // find the Id
-                function findId(products) {
-                    return products._id === cartProductId;
-                }
-                const findProductId = products.find(findId);
-                productImageUrl = findProductId.imageUrl;
-                productImageAlt = findProductId.altTxt;
-                productName = findProductId.name;
-                productPrice = findProductId.price;
-                productDescription = findProductId.description;
-                productColors = findProductId.colors;
-                            
-                // set attributes for an article
-                const cartItemArticle = document.getElementsByTagName('article');
-                cartItemArticle[i].setAttribute('data-id', cartProductId);
-                cartItemArticle[i].setAttribute('data-color', cartProductColor);
-                cartItemArticle[i].getElementsByTagName('img')[0].setAttribute('src', productImageUrl);
-                cartItemArticle[i].getElementsByTagName('img')[0].setAttribute('alt', productImageAlt);
-                const cartItemDesc = document.getElementsByClassName('cart__item__content__description')[i];
-                cartItemDesc.getElementsByTagName('h2')[0].innerHTML = productName;
-                cartItemDesc.getElementsByTagName('p')[0].innerHTML = cartProductColor;
-                cartItemDesc.getElementsByTagName('p')[1].innerHTML = productPrice+ ' €';
-                document.getElementsByClassName('itemQuantity')[i].setAttribute('value', cartProductQuantity);
-                cartTotalQuantity += parseInt(cartProductQuantity);
-                document.getElementById('totalQuantity').innerHTML = cartTotalQuantity;
-                cartTotalPrice += cartProductQuantity * productPrice;
-                document.getElementById('totalPrice').innerHTML = cartTotalPrice;
+  productFetch ();    
+}
 
-            
-                //Change quantity in cart
-                const inputQuantity = document.getElementsByClassName('itemQuantity')[i];
-                inputQuantity.addEventListener ('change', () => {
-                    let cartProducts = getCart();
-                    for (let i = 0; i < cartProducts.length; i++) {
-                        if(cartProductId === cartProducts[i][0] && cartProductColor === cartProducts[i][1]) {
-                            cartProducts[i][2] = inputQuantity.value;
-                        }
-                        localStorage.setItem('cart', JSON.stringify(cartProducts));
-                        window.location.reload();                
-                    }
-                });
+//to change quantity in cart
+function changeCartQuantity(productId, productColor, ProductQuantity) {
+  let cartProducts = getCart();
+  for (let i = 0; i < cartProducts.length; i++) {
+    if(productId === cartProducts[i][0] && productColor === cartProducts[i][1]) {
+      if(ProductQuantity.value == 0) {
+        deleteCartItem (productId, productColor);
+      } else {
+      cartProducts[i][2] = ProductQuantity.value;
+      localStorage.setItem('cart', JSON.stringify(cartProducts));
+      window.location.reload();
+      }
+    }                    
+  }
+}
 
-                //Delete items
-                const deleteItemButton = document.getElementsByClassName('deleteItem')[i];
-                deleteItemButton.addEventListener ('click', () => {
-                    let cartProducts = getCart();
-                    for (let i = 0; i < cartProducts.length; i++) {
-                        if(cartProductId === cartProducts[i][0] && cartProductColor === cartProducts[i][1]) {
-                          cartProducts.splice(i, 1);
-                          localStorage.setItem('cart', JSON.stringify(cartProducts));
-                          window.location.reload();  
-                        }
-                    }
-                });           
-            })
-            .catch(function(err) {
-                    // Une erreur est survenue
-            });
-    } // end for
-} // end else 
-
+// to delete items in cart
+function deleteCartItem(productId, productColor) {
+  let cartProducts = getCart();
+  for (let i = 0; i < cartProducts.length; i++) {
+    if(productId === cartProducts[i][0] && productColor === cartProducts[i][1]) {
+      cartProducts.splice(i, 1);
+      localStorage.setItem('cart', JSON.stringify(cartProducts));
+      window.location.reload();  
+    }
+  }
+}
 
 const orderButton = document.getElementById('order');
 const firstNameInput = document.getElementById('firstName');
@@ -127,8 +146,15 @@ const cityInput = document.getElementById('city');
 const addressInput = document.getElementById('address');
 const emailInput = document.getElementById('email');
 
-const regexName = /^[a-zA-ZàèìòùÀÈÌÒÙáéíóúýÁÉÍÓÚÝâêîôûÂÊÎÔÛãñõÃÑÕäëïöüÿÄËÏÖÜŸçÇßØøÅåÆæœ\s\,\''\-]*$/i;
-const regexAddress = /^[a-zA-Z0-9àèìòùÀÈÌÒÙáéíóúýÁÉÍÓÚÝâêîôûÂÊÎÔÛãñõÃÑÕäëïöüÿÄËÏÖÜŸçÇßØøÅåÆæœ\s\,\''\-]*$/i;
+
+// Regular expression :
+// a-z lowercase, A-Z uppercase , all spécial language accent
+// \s => allow space
+//\,  \'  \- allow comma, simple quote and dash
+// /^[...]*$/ match all between the brackets many times
+// /i tets if don't match the regular expression
+const regexName = /^[a-zA-ZàèìòùÀÈÌÒÙáéíóúýÁÉÍÓÚÝâêîôûÂÊÎÔÛãñõÃÑÕäëïöüÿÄËÏÖÜŸçÇßØøÅåÆæœ\s\,\'\-]*$/i;
+const regexAddress = /^[a-zA-Z0-9àèìòùÀÈÌÒÙáéíóúýÁÉÍÓÚÝâêîôûÂÊÎÔÛãñõÃÑÕäëïöüÿÄËÏÖÜŸçÇßØøÅåÆæœ\s\,\'\-]*$/i;
 const regexEmail = /^[0-9a-z._-]+@{1}[0-9a-z.-]{2,}[.]{1}[a-z]{2,5}$/i;
 
 const firstNameErrorMsg = document.getElementById("firstNameErrorMsg");
@@ -137,7 +163,22 @@ const cityErrorMsg = document.getElementById("cityErrorMsg");
 const addressErrorMsg = document.getElementById("addressErrorMsg");
 const emailErrorMsg = document.getElementById("emailErrorMsg");
 
-function makeJsonData() {
+/**
+*
+* Expects request to contain:
+* contact: {
+*   firstName: string,
+*   lastName: string,
+*   address: string,
+*   city: string,
+*   email: string
+* }
+* products: [string] <-- array of product _id
+*
+*/
+
+// to transform data in JSON
+function setDataJson() {
   let contact = {
     firstName: firstNameInput.value,
     lastName: lastNameInput.value,
@@ -158,8 +199,6 @@ function makeJsonData() {
   return dataJSON;
 }
 
-
-
 // to order
 if (cartProducts.length == 0) {    // if cart is empty, create a button to return to home page
     const parentSection = cartSection[0];
@@ -173,58 +212,45 @@ if (cartProducts.length == 0) {    // if cart is empty, create a button to retur
     orderButton.addEventListener('click', (orderSubmit) => {
       orderSubmit.preventDefault(); //prevent submit button action
 
-      const firstNameTest = regexName.test(firstNameInput.value);
+      const firstNameTest = regexName.test(firstNameInput.value);;
       const lastNameTest = regexName.test(lastNameInput.value);
       const addressTest = regexAddress.test(addressInput.value);
       const cityTest = regexName.test(cityInput.value);
       const emailTest = regexEmail.test(emailInput.value);
 
-      console.log(regexName.test(firstNameInput.value));
-      console.log(regexName.test(lastNameInput.value));
-      console.log(regexAddress.test(addressInput.value));
-      console.log(regexAddress.test(cityInput.value));
-      console.log(regexEmail.test(emailInput.value));
+      console.log(firstNameTest);
+      console.log(lastNameTest);
+      console.log(addressTest);
+      console.log(cityTest);
+      console.log(emailTest);
+     
+      let dataJSON = setDataJson();
 
-        /**
-       *
-       * Expects request to contain:
-       * contact: {
-       *   firstName: string,
-       *   lastName: string,
-       *   address: string,
-       *   city: string,
-       *   email: string
-       * }
-       * products: [string] <-- array of product _id
-       *
-       */
-      
-      let dataJSON = makeJsonData();
-
+      // test form input
       if (
-        firstNameTest == false ||
-        lastNameTest == false ||
-        addressTest == false ||
-        cityTest == false ||
-        emailTest == false
+        firstNameTest == false || firstNameInput.value == '' ||        
+        lastNameTest == false || lastNameInput.value == '' ||
+        addressTest == false || addressInput.value == '' ||
+        cityTest == false || cityInput.value == '' ||
+        emailTest == false || emailInput.value == ''
       ) {
         if (firstNameTest == false || firstNameInput.value == '') {
-          firstNameErrorMsg.innerHTML = 'Veuillez entrer un prénom valide sans chiffre ni caractère spécial.';
+          firstNameErrorMsg.innerHTML = 'Veuillez entrer un prénom sans chiffre ni caractères spéciaux.';
         } else {
           firstNameErrorMsg.innerHTML = null;
         }
         if (lastNameTest == false || lastNameInput.value == '') {
-          lastNameErrorMsg.innerHTML = 'Veuillez entrer un nom valide sans chiffre ni caractère spécial.';
+          lastNameErrorMsg.innerHTML = 'Veuillez entrer un nom sans chiffre ni caractères spéciaux.';
         } else {
           lastNameErrorMsg.innerHTML = null;
         }
         if (addressTest == false || addressInput.value == '') {
-          addressErrorMsg.innerHTML = 'Veuillez entrer une adresse valide sans caractère spécial.';
+          addressErrorMsg.innerHTML = 'Veuillez entrer une adresse sans caractères spéciaux.';
         } else {
           addressErrorMsg.innerHTML = null;
         }
         if (cityTest == false || cityInput.value == '') {
-          cityErrorMsg.innerHTML = 'Veuillez entrer une ville valide sans caractère spécial.';
+          cityErrorMsg.innerHTML = 'Veuillez entrer une ville sans caractères spéciaux.';
         } else {
           cityErrorMsg.innerHTML = null;
         }
@@ -235,7 +261,8 @@ if (cartProducts.length == 0) {    // if cart is empty, create a button to retur
         }
         return;
       }
-    
+      
+      // Send form data on the API bye POST method
       fetch("http://localhost:3000/api/products/order", {
         method: "POST",
         body: dataJSON,
@@ -244,18 +271,19 @@ if (cartProducts.length == 0) {    // if cart is empty, create a button to retur
           "Content-Type": "application/json" 
           },
         })
-      .then((res) => res.json())
+      .then((response) => response.json())
       .then((data) => {
         localStorage.clear();
-        window.location.href = "./confirmation.html?id=" + data.orderId;
+        window.location.href = "./confirmation.html?id=" + data.orderId + '#limitedWidthBlock';
         console.log(data);      
       });
     
     });
 }
 
+// to remove error message from form input
 const formSection = document.getElementsByClassName('cart__order__form');
-if(formSection == true) {
+if(formSection || cartProducts.length != 0) {
     firstNameInput.addEventListener('change', ()=> {
       firstNameErrorMsg.innerHTML = '';
     });
